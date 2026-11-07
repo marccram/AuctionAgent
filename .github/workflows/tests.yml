@@ -1,0 +1,19 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lua:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit
+      - name: Syntax check
+        run: for f in AuctionAgent/*.lua AuctionAgent/Locales/*.lua; do luajit -bl "$f" > /dev/null; done
+      - name: Run tests
+        run: luajit tests/run.lua
+      - name: Build release zip
+        run: python3 tools/package.py

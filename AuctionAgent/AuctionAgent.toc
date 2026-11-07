@@ -1,0 +1,26 @@
+## Interface: 16001
+## Title: AuctionAgent
+## Notes: Decide what to auction and what to vendor, with minimal friction.
+## Version: 1.0.0
+## Author: marccram
+## SavedVariables: AuctionAgentDB
+## SavedVariablesPerCharacter: AuctionAgentCharDB
+## OptionalDeps: Auctionator, VendorPricePlus
+## IconTexture: Interface\Icons\INV_Misc_Coin_02
+
+Locales\enUS.lua
+Compat.lua
+Prices.lua
+Options.lua
+Bags.lua
+Marks.lua
+Scanner.lua
+Tooltip.lua
+Sell.lua
+UI_SellPanel.lua
+UI_Merchant.lua
+Alerts.lua
+UI_Settings.lua
+Onboarding.lua
+Debug.lua
+Core.lua
