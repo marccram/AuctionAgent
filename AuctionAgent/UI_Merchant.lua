@@ -103,8 +103,10 @@ end
 
 local function create()
     btn = CreateFrame("Button", "AuctionAgentSellMarkedButton", MerchantFrame, "UIPanelButtonTemplate")
-    btn:SetSize(112, 22)
-    btn:SetPoint("BOTTOMLEFT", MerchantFrame, "BOTTOMLEFT", 8, 30)
+    -- Below the window's bottom-right corner: inside the frame the bottom row is taken by the
+    -- repair and junk buttons, and the tabs only occupy the left.
+    btn:SetSize(140, 24)
+    btn:SetPoint("TOPRIGHT", MerchantFrame, "BOTTOMRIGHT", -6, 4)
     btn:SetFrameLevel(MerchantFrame:GetFrameLevel() + 10)
     btn:SetText("Sell marked")
     btn:SetScript("OnClick", function() pcall(V.SellMarked) end)

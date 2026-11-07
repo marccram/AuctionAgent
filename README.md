@@ -23,7 +23,7 @@ Requires the WoW Forever client (`## Interface: 16001`). Auctionator and VendorP
 
 1. **Get pricing.** Open the Auction House. The first time, AuctionAgent offers a full scan of the whole auction house, which gives every item a price in its tooltip while you quest. After that, the items in your bags are re-priced each time the AH opens. **Keep the Auction House open while a scan runs**: a progress bar under the window shows how far along it is, and turns green with "you can close the Auction House" when it is done. Closing the window early cancels the scan.
 2. **Mark your items.** Alt + left-click an item in your bags to cycle its mark: `AH` (gold) means auction it, `V` (grey) means vendor it, a third click clears it. Soulbound items can only be marked `V`.
-3. **Sell.** At a vendor, press **Sell marked** in the merchant window. At the AH, open the Sell tab and use the Sell Panel's **Post all marked** or **Post all high-margin** buttons (both ask for confirmation first).
+3. **Sell.** At a vendor, press **Sell marked** (the button just below the merchant window). At the AH, open the Sell tab and use the Sell Panel's **Post all marked** or **Post all high-margin** buttons (both ask for confirmation first).
 4. **Tune it.** Type `/aa` to open the options.
 
 ## How the numbers work

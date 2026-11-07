@@ -2,6 +2,7 @@
 
 ## 1.0.1
 
+- The **Sell marked** button moved below the merchant window so it no longer covers the repair buttons.
 - **Scan progress bar** under the Auction House window: shows what a scan is doing (requesting the list from the server with an elapsed timer, reading auctions with a percentage, pricing bag items n/total), reminds you to keep the Auction House open, and ends with a green "you can close the Auction House" message or a red explanation if the scan failed, timed out or was cancelled.
 - Closing the Auction House mid-scan now says so plainly in chat.
 - The first-run scan prompt and Quick Start window mention that the Auction House has to stay open until the scan finishes.
@@ -14,7 +15,7 @@ First release, for the WoW Forever (Midnight retail) client.
 - **Sell Panel** beside the Auction House Sell tab: sortable and filterable list of every sellable bag item with vendor, market and suggested price, profit net of deposit, margin and data age; one-click Post; Post all high-margin and Post all marked with a confirmation dialog; ignore list.
 - **Scanner:** full auction house scan (chunked so the client does not freeze), scan of just your bag items, and reuse of the client's cached snapshot. Throttle-aware, with progress messages. Automatic bag scan when the AH opens.
 - **Profit model** that includes the 5 percent AH cut and the listing deposit (measured: 60 percent of vendor value at 24 hours, 1 silver minimum per listing).
-- **Marks:** Alt + left-click a bag item to cycle Auction, Vendor, none, with `AH` and `V` badges on the item. A "Sell marked" button in the merchant window sells exactly the vendor-marked items. Soulbound items can only be marked for the vendor.
+- **Marks:** Alt + left-click a bag item to cycle Auction, Vendor, none, with `AH` and `V` badges on the item. A "Sell marked" button below the merchant window sells exactly the vendor-marked items. Soulbound items can only be marked for the vendor.
 - **Alerts:** minimap button with a count and a thin gold bag border for newly looted items worth auctioning; deferred during combat; de-duplicated; optional chat line and sound.
 - **Options panel** (`/aa` or Game Menu > Options > AddOns) covering thresholds, deposit weighting, duration, pricing strategy, market value tuning, scanning, tooltips, alerts and marks.
 - **First run:** a Quick Start window and an offer to run a full scan at the Auction House.
