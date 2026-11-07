@@ -19,6 +19,22 @@ local function say(msg) AA.Print(msg) end
 
 function S.IsBusy() return S.state ~= nil end
 
+-- Pure: text and fraction (0..1) for a scan state; fraction nil means "waiting, unknown length".
+function S.ProgressInfo(st)
+    if not st then return nil end
+    if st.kind == "full" then
+        if st.phase == "waiting" then return "Requesting the auction list from the server...", nil end
+        local frac = (st.total and st.total > 0) and (st.done or 0) / st.total or 0
+        return ("Reading auctions... %d%%"):format(math.floor(frac * 100)), frac
+    end
+    local total = st.total or 0
+    local frac = total > 0 and (st.done or 0) / total or 0
+    return ("Pricing bag items... %d/%d"):format(st.done or 0, total), frac
+end
+
+local function update() AA.Fire("SCAN_UPDATE") end
+local function ended(ok, msg) AA.Fire("SCAN_ENDED", ok, msg) end
+
 function S.Status()
     local st = S.state
     if not st then return "idle" end
@@ -27,8 +43,10 @@ end
 
 function S.Cancel(reason)
     if S.state then
-        say("Scan cancelled" .. (reason and (": " .. reason) or "") .. ".")
+        local msg = "Scan cancelled" .. (reason and (": " .. reason) or "") .. "."
+        say(msg)
         S.state = nil
+        ended(false, msg)
     end
 end
 
@@ -38,6 +56,9 @@ local function finish(kind, stored)
     if kind == "full" and AA.db then AA.db.fullScanAt = time() end
     say(("%s scan done: %d items priced."):format(kind == "full" and "Full" or "Bag", stored))
     AA.Fire("SCAN_DONE", kind, stored)
+    ended(true, kind == "full"
+        and ("Scan complete: %d items priced. You can close the Auction House."):format(stored)
+        or ("Bag prices updated: %d items priced."):format(stored))
 end
 
 ---------------------------------------------------------------------------
@@ -83,6 +104,7 @@ local function processChunk()
     if not ok then
         S.state = nil
         say("Scan aborted: " .. tostring(err))
+        ended(false, "Scan aborted: " .. tostring(err))
         return
     end
     if st.done >= st.total then
@@ -93,6 +115,7 @@ local function processChunk()
             say(("Scanning... %d%%"):format(pct))
             st.nextReport = st.nextReport + 25
         end
+        update()
         C_Timer.After(0, processChunk)
     end
 end
@@ -105,9 +128,15 @@ end
 
 local function beginProcessing(st)
     local n = snapshotSize()
-    if n <= 0 then S.state = nil; say("Scan failed: no auction snapshot is loaded."); return end
+    if n <= 0 then
+        S.state = nil
+        say("Scan failed: no auction snapshot is loaded.")
+        ended(false, "Scan failed: no auction snapshot is loaded.")
+        return
+    end
     st.phase, st.total, st.done, st.i, st.acc, st.nextReport = "processing", n, 0, 0, {}, 25
     say(("Processing %d auctions..."):format(n))
+    update()
     processChunk()
 end
 
@@ -125,13 +154,15 @@ function S.StartFull()
     local ok, err = C.Call("C_AuctionHouse.ReplicateItems")
     if not ok then say("Full scan unavailable: " .. tostring(err)) return end
     S.state = { kind = "full", phase = "waiting", done = 0, total = 0 }
-    say("Full scan requested. The server can take up to a minute or two to answer, and limits how often it allows this.")
+    say("Full scan requested. Keep the Auction House open until it finishes (progress bar below the window). The server can take a minute or two to answer, and limits how often it allows this.")
+    update()
     local st = S.state
     C_Timer.After(WAIT_SECONDS, function()
         if S.state == st and st.phase == "waiting" then
             S.state = nil
             local held = snapshotSize()
             say("Full scan timed out: the server never sent the auction list (probably its scan cooldown).")
+            ended(false, "Scan timed out: the server did not send the auction list (probably its scan cooldown).")
             if held > 0 then
                 say(("The client still holds an earlier snapshot of %d auctions. Use /aa scan cached to price from it."):format(held))
             end
@@ -174,6 +205,7 @@ local function sendNext()
     if not st or st.kind ~= "bags" then return end
     st.idx = st.idx + 1
     st.done = st.idx - 1
+    update()
     if st.idx > #st.queue then
         finish("bags", st.priced)
         return
@@ -202,7 +234,8 @@ function S.StartBags()
     if #queue == 0 then say("No sellable items in your bags.") return end
     S.state = { kind = "bags", phase = "querying", queue = queue, idx = 0, done = 0,
                 total = #queue, priced = 0, token = 0, got = true }
-    say(("Scanning %d bag items (about %d seconds)..."):format(#queue, math.ceil(#queue * 0.6)))
+    say(("Scanning %d bag items (about %d seconds). Keep the Auction House open."):format(#queue, math.ceil(#queue * 0.6)))
+    update()
     local ok, ready = C.Call("C_AuctionHouse.IsThrottledMessageSystemReady")
     if not ok or ready then sendNext() end   -- otherwise THROTTLED_SYSTEM_READY starts it
 end
@@ -266,7 +299,7 @@ if CreateFrame then
                 end)
             elseif event == "AUCTION_HOUSE_CLOSED" then
                 S.ahOpen = false
-                S.Cancel("auction house closed")
+                S.Cancel("the Auction House was closed. Keep it open until a scan finishes")
                 AA.Fire("AH_CLOSED")
             elseif event == "REPLICATE_ITEM_LIST_UPDATE" then
                 onReplicate()

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+- **Scan progress bar** under the Auction House window: shows what a scan is doing (requesting the list from the server with an elapsed timer, reading auctions with a percentage, pricing bag items n/total), reminds you to keep the Auction House open, and ends with a green "you can close the Auction House" message or a red explanation if the scan failed, timed out or was cancelled.
+- Closing the Auction House mid-scan now says so plainly in chat.
+- The first-run scan prompt and Quick Start window mention that the Auction House has to stay open until the scan finishes.
+
 ## 1.0.0
 
 First release, for the WoW Forever (Midnight retail) client.

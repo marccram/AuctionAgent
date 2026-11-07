@@ -12,6 +12,7 @@ Pure logic is covered by `luajit tests/run.lua`. Everything below needs the game
 
 - [ ] First AH visit offers a full scan (Scan now / Later / Don't ask again) until one completes.
 - [ ] A full scan shows progress, completes, and says how many items were priced. Prices survive `/reload` (`/aa status`).
+- [ ] While a scan runs, a bar under the AH shows progress (elapsed time while waiting for the server, then a percentage) and says to keep the AH open; it turns green with "you can close the Auction House" when done, and red with a reason if the scan fails or times out. Closing the AH mid-scan cancels it with a chat message.
 - [ ] With the AH open, `/aa scan bags` prices the bag items without a throttle error.
 - [ ] On the Sell tab the Sell Panel docks beside the AH and lists all sellable items with vendor, market, suggested price, profit, margin, age.
 - [ ] Sorting by clicking headers, the filter box, "High margin only" and "Marked only" work.

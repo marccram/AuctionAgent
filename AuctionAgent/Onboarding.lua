@@ -49,7 +49,7 @@ end
 if StaticPopupDialogs then
     StaticPopupDialogs["AUCTIONAGENT_FIRSTSCAN"] = {
         text = "AuctionAgent: scan the whole auction house now?\n\nThis fills item tooltips with AH prices, "
-            .. "so you can see what is worth auctioning while you quest. It takes a moment; you can keep browsing.",
+            .. "so you can see what is worth auctioning while you quest. It takes a moment, and the Auction House has to stay open until the progress bar under it finishes.",
         button1 = "Scan now",
         button2 = "Later",
         button3 = "Don't ask again",
@@ -140,7 +140,7 @@ local function build()
     box(frame, 1, "Interface\\Icons\\INV_Misc_Coin_01", "Get Latest Pricing",
         "Open the Auction House and a scan starts automatically. The first time, a prompt offers a full "
         .. "scan of the whole auction house. That scan loads prices for every item, so tooltips show the "
-        .. "AH value, margin and an auction-or-vendor hint while questing. Bag items are re-priced on each visit.")
+        .. "AH value, margin and an auction-or-vendor hint while questing. Keep the window open until the progress bar finishes.")
     frame.markText = box(frame, 2, "Interface\\Icons\\INV_Misc_Bag_08", "Mark Your Items", "")
     box(frame, 3, "Interface\\Icons\\INV_Misc_Gear_01", "Check Settings",
         "Type |cffffd100/aa|r to open the settings.\n\nCheck the default auction duration, pricing "

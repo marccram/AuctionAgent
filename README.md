@@ -21,7 +21,7 @@ Requires the WoW Forever client (`## Interface: 16001`). Auctionator and VendorP
 
 ## Quick start
 
-1. **Get pricing.** Open the Auction House. The first time, AuctionAgent offers a full scan of the whole auction house, which gives every item a price in its tooltip while you quest. After that, the items in your bags are re-priced each time the AH opens.
+1. **Get pricing.** Open the Auction House. The first time, AuctionAgent offers a full scan of the whole auction house, which gives every item a price in its tooltip while you quest. After that, the items in your bags are re-priced each time the AH opens. **Keep the Auction House open while a scan runs**: a progress bar under the window shows how far along it is, and turns green with "you can close the Auction House" when it is done. Closing the window early cancels the scan.
 2. **Mark your items.** Alt + left-click an item in your bags to cycle its mark: `AH` (gold) means auction it, `V` (grey) means vendor it, a third click clears it. Soulbound items can only be marked `V`.
 3. **Sell.** At a vendor, press **Sell marked** in the merchant window. At the AH, open the Sell tab and use the Sell Panel's **Post all marked** or **Post all high-margin** buttons (both ask for confirmation first).
 4. **Tune it.** Type `/aa` to open the options.
@@ -58,7 +58,7 @@ If **Auctionator** already shows a price for an item, AuctionAgent adds only its
 ## Known limitations
 
 - Auction House posting needs a click per post, so **Post all** posts the first item and then **Post next** advances the queue. An experimental "post a whole queue from one click" option exists; Blizzard may block it.
-- A full scan downloads the whole auction house and the server limits how often it can run. If a scan reports a timeout, try again later or use `/aa scan cached`.
+- A scan only runs while the Auction House window is open (closing it cancels the scan). A full scan downloads the whole auction house and the server limits how often it can run. If a scan reports a timeout, try again later or use `/aa scan cached`.
 - Gear is priced by base item ID, since bulk scan data carries no item level or bonuses.
 - Soulbound items cannot be auctioned, so they are only ever marked for the vendor.
 - No cancel/relist management, no auto-buying or sniping, no external price sources.
