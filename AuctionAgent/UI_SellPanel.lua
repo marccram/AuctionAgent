@@ -135,7 +135,7 @@ local function fillRow(r, row)
     local c = r.cell
     if row.icon then r.icon:SetTexture(row.icon) else r.icon:SetTexture(nil) end
     local tag = row.mark == "auction" and "|cffffd100[AH]|r "
-        or (row.mark == "vendor" and "|cffc7c7cf[V]|r " or "")
+        or (row.mark == "vendor" and "|cff4dff4d[V]|r " or "")
     c.name:SetText(tag .. qualityHex(row.quality) .. row.name .. "|r")
     c.qty:SetText(row.count)
     setColor(c.qty, WHITE)

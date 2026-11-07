@@ -173,7 +173,7 @@ function Ob.ShowWelcome()
         if not ok then AA.Print("Welcome window could not be built: " .. tostring(err)) return end
     end
     frame.markText:SetText(("|cffffd100%s|r on an item in your bags cycles its mark.\n\n"
-        .. "|cffffd100AH|r (gold): auction it\n|cffc7c7cfV|r (grey): vendor it\nThird click: clear\n\n"
+        .. "|cffffd100AH|r (gold): auction it\n|cff4dff4dV|r (green): vendor it\nThird click: clear\n\n"
         .. "At a vendor, press |cffffd100Sell marked|r. At the AH, press |cffffd100Post all marked|r.")
         :format(Ob.MarkHint(AA.settings)))
     frame:Show()

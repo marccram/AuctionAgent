@@ -240,7 +240,7 @@ local function refreshButton(btn)
     if mark == "auction" then
         o:SetText("AH"); o:SetTextColor(1, 0.82, 0)
     else
-        o:SetText("V"); o:SetTextColor(0.78, 0.78, 0.81)
+        o:SetText("V"); o:SetTextColor(0.3, 1, 0.3)
     end
     o:Show()
 end
