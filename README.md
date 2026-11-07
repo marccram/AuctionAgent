@@ -11,6 +11,10 @@ It prices your bag items from the Auction House, shows the answer in item toolti
 - **Quiet alerts** while questing: a minimap button and a thin gold bag border when a looted item is worth auctioning (never in combat, no popups)
 - An options panel, a first-run welcome, and a taint-conscious design (hooks only; no Blizzard functions are replaced)
 
+<p align="center">
+  <img src="screenshots/aa-welcome.jpg" alt="The AuctionAgent Quick Start window shown on first login" width="760">
+</p>
+
 ## Install
 
 1. Download `AuctionAgent-<version>-forever.zip` from the [latest release](../../releases/latest).
@@ -25,6 +29,12 @@ Requires the WoW Forever client (`## Interface: 16001`). Auctionator and VendorP
 2. **Mark your items.** Alt + left-click an item in your bags to cycle its mark: `AH` (gold) means auction it, `V` (green) means vendor it, a third click clears it. Soulbound items can only be marked `V`.
 3. **Sell.** At a vendor, press **Sell marked** (the button just below the merchant window). At the AH, open the Sell tab and use the Sell Panel's **Post all marked** or **Post all high-margin** buttons (both ask for confirmation first).
 4. **Tune it.** Type `/aa` to open the options.
+
+## The Sell Panel
+
+Open the Auction House's Sell tab and the Sell Panel docks beside it, listing everything in your bags that can be auctioned. Click a column header to sort; use the filter box, "High margin only" and "Marked only" to narrow it. The icon buttons across the top scan your bags, run a full scan, and post everything flagged high-margin or marked (each asks for confirmation first). Profit is already net of the AH cut and the listing deposit.
+
+![The Sell Panel listing bag items with vendor, market and suggested prices, profit and margin](screenshots/aa-sell.jpg)
 
 ## How the numbers work
 
