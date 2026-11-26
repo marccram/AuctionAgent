@@ -43,7 +43,7 @@ end)
 test("row: price below vendor floor is flagged as floor", function()
     local r = S.BuildRow(group(6, "Junk", 1, 1000), entry(900), NOW, nil, false)
     eq(r.note, "floor")
-    eq(r.suggested, 1050)
+    eq(r.suggested, 1737)    -- (1000 * 1.05 + 600 deposit) / 0.95
 end)
 
 local function sampleRows()
@@ -134,4 +134,28 @@ test("marked: filter, marked-first ordering and post-all-marked selection", func
     local chosen, skipped = S.MarkedRows(rows)
     eq(#chosen, 1); eq(chosen[1].name, "Charlie")                     -- vendor-marked and unpriced excluded
     eq(skipped, 1)
+end)
+
+test("row: exact deposit from the AH is used for profit and the floor", function()
+    local r = S.BuildRow(group(30, "Ore", 20, 50), entry(1000, 990), NOW, nil, true, 25)
+    eq(r.deposit, 25); eq(r.depositExact, true)
+    eq(r.eval.profitTotal, (math.floor(r.suggested * 0.95) - 50) * 20 - 25)
+end)
+
+test("post guards: refuse old prices and money-losing posts; marked skips them", function()
+    local old = S.BuildRow(group(31, "Old", 1, 100), { market = 50000, low = 50000, t = NOW - 7200 }, NOW, nil, false)
+    eq(old.tooOld, true)
+    local plan, why = S.PlanPost(old, { duration = 24 })
+    eq(plan, nil); assert(why:find("scan"), why)
+
+    local fresh = S.BuildRow(group(32, "Fresh", 1, 100), entry(50000), NOW, nil, false)
+    local loser = S.BuildRow(group(33, "Loser", 1, 100), entry(50000), NOW, nil, false)
+    loser.eval.profit = -1
+    plan, why = S.PlanPost(loser, { duration = 24 })
+    eq(plan, nil); assert(why:find("vendor"), why)
+
+    old.mark, fresh.mark, loser.mark = "auction", "auction", "auction"
+    local chosen, skipped = S.MarkedRows({ old, fresh, loser })
+    eq(#chosen, 1); eq(chosen[1].name, "Fresh"); eq(skipped, 2)
+    eq(#S.HighMarginRows({ old }), 0)
 end)

@@ -238,7 +238,7 @@ local function create()
         function()
             local rows, skipped = S.MarkedRows(S.Rows())
             if skipped > 0 then
-                AA.Print(("%d marked item(s) have no price data and are skipped (scan first)."):format(skipped))
+                AA.Print(("%d marked item(s) skipped: no price data, prices too old, or they would earn less than the vendor pays. Scan your bags to refresh."):format(skipped))
             end
             if #rows == 0 then
                 AA.Print("No marked items to post. Alt+click an item in your bags to mark it for the Auction House.")

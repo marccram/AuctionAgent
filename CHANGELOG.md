@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2
+
+- **Deposit formula updated to the live client** (measured after the November 2026 hotfix): 5 / 20 / 60 percent of vendor value for 2 / 8 / 24 hours, rounded down, **minimum 1c** per listing (was 1s). Cheap items are no longer written off as "vendor it" because of a deposit that no longer exists.
+- **Fixed tooltip deposits on older installs.** Settings saved by 1.0.0 kept the first, wrong deposit rate (15% per 12 hours), so tooltips showed a quarter of the real deposit (Hillman's Cloak: 51c instead of 2s 5c) while the Sell Panel, which asks the server, was right. Internal price constants are now always taken from the addon, never from saved settings.
+- **Scan progress bar position** is now an option (Scanning > "Scan progress bar position"): above the Auction House window (new default), over its middle, or below it as before, where it could cover other addons' tabs.
+- **Real deposits.** At the Auction House, the Sell Panel now uses the deposit the server reports for each listing instead of an estimate, and learns the live rates and minimum from it. Tooltips use the learned values. This covers the November 2026 deposit changes (minimum deposit 1s to 1c) without another update.
+- **No more posting at a loss.** The price floor used to be vendor x 1.05, which after the 5% AH cut and the deposit earned *less* than vendoring. It now covers the cut and the deposit, then adds the 5% margin.
+- **No posting on old prices.** Posting is refused when an item's price data is more than an hour old (new option), and Post all marked / Post all high-margin skip such items, along with any item that would earn less than vendoring it. Scan your bags to refresh.
+
 ## 1.0.1
 
 - The vendor mark is now **green** (it was grey and hard to read); the AH mark stays gold.

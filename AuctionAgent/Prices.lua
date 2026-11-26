@@ -18,15 +18,18 @@ P.DEFAULTS = {
     minListingPrice = 1,
     vendorFloorMult = 1.05,
     duration = 8,             -- listing duration in hours (2/8/24 on this client)
-    -- Deposit = max(minDeposit, vendor * qty * depositRate * hours / 24), per LISTING.
-    -- Verified against the live client (WoW Forever 1.60.1): durations are 2h / 8h / 24h,
-    -- and 24h costs 60% of vendor value; 100c minimum even for vendor-price-0 items.
-    -- The 2h and 8h rates are assumed linear (5% / 20%): they only ever showed the minimum.
+    -- Deposit = max(minDeposit, floor(vendor * qty * depositRate * hours / 24)), per LISTING.
+    -- Measured on the live client 2026-11-25 (after the Nov 2026 hotfix), 10 items, all three
+    -- durations: 2h / 8h / 24h = exactly 5% / 20% / 60% of total vendor value, rounded down,
+    -- minimum 1c per listing (was 1s before the hotfix).
     -- Deposit is refunded when the auction sells and lost if it expires, so depositWeight
     -- is how much of it counts as a cost: 1 = all (conservative), 0 = ignore it.
+    -- While the AH is open the real deposit is read from the server and the rates/minimum are
+    -- re-learned from it (P.LearnDeposit), so a later Blizzard change is picked up too.
     depositRate = 0.6,        -- fraction of vendor value per 24 hours
-    minDeposit = 100,         -- copper floor per listing
+    minDeposit = 1,           -- copper floor per listing
     depositWeight = 1.0,
+    postMaxAge = 3600,        -- refuse to post on price data older than this (seconds); 0 = off
     outlierFraction = 0.15,   -- market value = median of the lowest 15% of listings
     outlierMax = 10,
     staleSeconds = 86400,     -- dim data older than this
@@ -132,12 +135,75 @@ function P.AhNet(market, s)
     return floor(market * (1 - opt(s, "ahCut")))
 end
 
+-- Learned deposit model (kept in settings.depositLearned):
+--   { v = LEARN_VERSION, min = copper, rates = { [hours] = rate } }
+-- Models saved by an older version are ignored (1.0.2 could store a wrong minimum).
+local LEARN_VERSION = 2
+local function learned(s)
+    local l = s and s.depositLearned
+    return (type(l) == "table" and l.v == LEARN_VERSION) and l or nil
+end
+
+local function learnedRate(hours, s)
+    local l = learned(s)
+    local r = l and type(l.rates) == "table" and l.rates[hours]
+    return (isNum(r) and r >= 0) and r or nil
+end
+
+-- Deposit rate (fraction of total vendor value) for a listing duration in hours.
+function P.DepositRate(hours, s)
+    return learnedRate(hours, s) or opt(s, "depositRate") * hours / 24
+end
+
+function P.MinDeposit(s)
+    local l = learned(s)
+    if l and isNum(l.min) and l.min >= 0 then return l.min end
+    return opt(s, "minDeposit")
+end
+
+-- Deposit before the minimum is applied (rounded down, as the server does).
+local function rawDeposit(value, hours, s)
+    local r = learnedRate(hours, s)
+    if r then return floor(value * r + 1e-6) end
+    return floor(value * opt(s, "depositRate") * hours / 24 + 1e-6)
+end
+
 -- Estimated deposit for ONE listing of `qty` units, in copper (before depositWeight).
 function P.Deposit(vendor, qty, s)
     local v = isNum(vendor) and vendor or 0
     local n = (isNum(qty) and qty >= 1) and qty or 1
-    local d = floor(v * n * opt(s, "depositRate") * opt(s, "duration") / 24)
-    return max(d, opt(s, "minDeposit"))
+    return max(rawDeposit(v * n, opt(s, "duration"), s), P.MinDeposit(s))
+end
+
+-- Fold one real deposit reading from the server into the learned model (stored in s).
+--   Rate: from a reading on a listing worth at least 10s of vendor value that is above the
+--         minimum, snapped to 0.1% (server rounding down skews small samples slightly).
+--   Minimum: a reading above what the rate gives IS the minimum; a reading below the known
+--         minimum only proves the minimum is no higher than that.
+-- Returns true if the model changed.
+function P.LearnDeposit(s, vendor, qty, hours, actual)
+    if type(s) ~= "table" or not isNum(actual) or actual < 0 or not isNum(hours) then return false end
+    local l = learned(s)
+    if not l then l = { v = LEARN_VERSION, rates = {} }; s.depositLearned = l end
+    l.rates = type(l.rates) == "table" and l.rates or {}
+    local changed = false
+    local value = (isNum(vendor) and vendor or 0) * ((isNum(qty) and qty >= 1) and qty or 1)
+
+    if value >= 1000 and actual > P.MinDeposit(s) then
+        local rate = floor(actual / value * 1000 + 0.5) / 1000
+        if floor(value * rate + 1e-6) == actual and l.rates[hours] ~= rate then
+            l.rates[hours] = rate
+            changed = true
+        end
+    end
+
+    local minNow = P.MinDeposit(s)
+    if actual > rawDeposit(value, hours, s) then
+        if l.min ~= actual then l.min = actual; changed = true end   -- exact minimum
+    elseif actual < minNow then
+        l.min = actual; changed = true                               -- upper bound
+    end
+    return changed
 end
 
 -- `extra` below is an optional per-unit cost of listing (the weighted deposit share).
@@ -172,7 +238,8 @@ end
 -- vendor is per-unit copper (or nil if not cached yet), qty is the stack size.
 -- state: "nodata" (never scanned) | "nolistings" | "ok"
 -- rec: "auction" | "vendor" | nil (marginal)
-function P.Evaluate(entry, vendor, qty, now, s)
+-- deposit (optional): the exact deposit for this listing, read from the AH; else estimated.
+function P.Evaluate(entry, vendor, qty, now, s, deposit)
     qty = (isNum(qty) and qty >= 1) and qty or 1
     local r = { vendor = vendor, qty = qty }
     if not entry then
@@ -189,7 +256,8 @@ function P.Evaluate(entry, vendor, qty, now, s)
     r.market, r.low = entry.market, entry.low
     r.marketTotal = entry.market * qty
     -- One listing of the whole stack: its deposit, weighted, spread per unit.
-    r.deposit = P.Deposit(vendor, qty, s)
+    r.deposit = isNum(deposit) and deposit or P.Deposit(vendor, qty, s)
+    r.depositExact = isNum(deposit) or nil
     local extra = r.deposit * opt(s, "depositWeight") / qty
     r.margin = P.Margin(entry.market, vendor, s, extra)
     r.profit = P.Profit(entry.market, vendor, s, extra)   -- per unit, net of deposit
@@ -207,9 +275,14 @@ end
 -- Suggested listing price
 ---------------------------------------------------------------------------
 
-function P.PriceFloor(vendor, s)
+-- Lowest per-unit price worth posting: after the AH cut and the (weighted) deposit share
+-- it still beats vendoring by vendorFloorMult. depositPerUnit defaults to the estimate for
+-- one unit. (The old floor, vendor x 1.05, lost money to the 5% cut plus the deposit.)
+function P.PriceFloor(vendor, s, depositPerUnit)
     local v = isNum(vendor) and vendor or 0
-    return max(ceil(v * opt(s, "vendorFloorMult")), opt(s, "minListingPrice"))
+    local dep = isNum(depositPerUnit) and depositPerUnit or P.Deposit(v, 1, s)
+    local need = v * opt(s, "vendorFloorMult") + dep * opt(s, "depositWeight")
+    return max(ceil(need / (1 - opt(s, "ahCut"))), opt(s, "minListingPrice"))
 end
 
 local function undercutAmount(base, s)
@@ -223,7 +296,8 @@ end
 
 -- lowest: lowest current buyout per unit (or nil), market: market value per unit (or nil).
 -- Returns price (copper per unit) or nil, note. note: "nodata" | "floor" | nil
-function P.SuggestPrice(lowest, market, vendor, s)
+-- depositPerUnit (optional) is passed on to PriceFloor.
+function P.SuggestPrice(lowest, market, vendor, s, depositPerUnit)
     local strategy = opt(s, "strategy")
     local price
     if strategy == "match" then
@@ -236,7 +310,7 @@ function P.SuggestPrice(lowest, market, vendor, s)
     end
     if not price then return nil, "nodata" end
 
-    local fl = P.PriceFloor(vendor, s)
+    local fl = P.PriceFloor(vendor, s, depositPerUnit)
     if price < fl then return fl, "floor" end
     return floor(price), nil
 end
@@ -248,6 +322,14 @@ end
 function P.IsStale(t, now, s)
     if not isNum(t) or not isNum(now) then return true end
     return (now - t) > opt(s, "staleSeconds")
+end
+
+-- True if price data is too old to post on (postMaxAge seconds; 0 turns the check off).
+function P.TooOldToPost(t, now, s)
+    local limit = opt(s, "postMaxAge")
+    if not isNum(limit) or limit <= 0 then return false end
+    if not isNum(t) or not isNum(now) then return true end
+    return (now - t) > limit
 end
 
 function P.AgeString(t, now)

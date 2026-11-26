@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: AuctionAgent
 ## Notes: Decide what to auction and what to vendor, with minimal friction.
-## Version: 1.0.1
+## Version: 1.0.2
 ## Author: marccram
 ## SavedVariables: AuctionAgentDB
 ## SavedVariablesPerCharacter: AuctionAgentCharDB

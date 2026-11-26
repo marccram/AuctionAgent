@@ -34,6 +34,7 @@ AA.DEFAULTS = copyDefaults(AA.Prices.DEFAULTS, {
     duration = 8,             -- hours (2/8/24)
     autoScan = true,
     scanScope = "bags",       -- "bags" | "full"
+    scanBarPosition = "top",  -- "top" | "center" | "bottom" (relative to the AH window)
     tooltipMode = "full",     -- "full" | "compact" | "off"
     autoCompact = true,       -- compact tooltip only for items Auctionator already prices
     lastScan = 0,
@@ -61,6 +62,7 @@ local function initDB()
     AuctionAgentDB = AuctionAgentDB or {}
     local db = AuctionAgentDB
     db.settings = copyDefaults(AA.DEFAULTS, db.settings or {})
+    AA.Options.ResetInternal(db.settings, AA.Prices.DEFAULTS)
     db.prices = db.prices or {}
     db.marks = db.marks or {}
     db.ignore = db.ignore or {}

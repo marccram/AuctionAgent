@@ -17,6 +17,7 @@ load("AuctionAgent/Tooltip.lua")
 load("AuctionAgent/Sell.lua")
 load("AuctionAgent/Alerts.lua")
 load("AuctionAgent/Onboarding.lua")
+load("AuctionAgent/UI_ScanBar.lua")
 
 local passed, failed = 0, 0
 function test(name, fn)

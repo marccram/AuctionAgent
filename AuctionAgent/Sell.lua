@@ -42,9 +42,10 @@ end
 ---------------------------------------------------------------------------
 
 -- g: group from Bags.Summarize. entry: price DB entry or nil. commodity: boolean.
+-- deposit (optional): the exact deposit for one listing, read from the AH.
 -- Profit/margin are evaluated at the SUGGESTED price (what you would actually post),
 -- net of the deposit for one listing.
-function S.BuildRow(g, entry, now, s, commodity)
+function S.BuildRow(g, entry, now, s, commodity, deposit)
     local listQty = commodity and g.count or 1
     local row = {
         itemID = g.itemID, link = g.link, name = g.name or ("item " .. g.itemID),
@@ -53,25 +54,50 @@ function S.BuildRow(g, entry, now, s, commodity)
         entry = entry, market = entry and entry.market, low = entry and entry.low,
         t = entry and entry.t,
     }
-    local base = P.Evaluate(entry, g.vendor, listQty, now, s)
+    local base = P.Evaluate(entry, g.vendor, listQty, now, s, deposit)
     row.state, row.age, row.stale = base.state, base.age, base.stale
+    row.tooOld = P.TooOldToPost(row.t, now, s)
     if row.market then
-        row.suggested, row.note = P.SuggestPrice(row.low, row.market, g.vendor, s)
+        local dep = base.deposit or P.Deposit(g.vendor, listQty, s)
+        row.suggested, row.note = P.SuggestPrice(row.low, row.market, g.vendor, s, dep / listQty)
         if row.suggested then
             row.eval = P.Evaluate({ market = row.suggested, low = row.suggested, t = entry.t },
-                g.vendor, listQty, now, s)
+                g.vendor, listQty, now, s, deposit)
             row.listingValue = row.suggested * listQty
             row.deposit = row.eval.deposit
+            row.depositExact = row.eval.depositExact
         end
     end
     return row
+end
+
+-- The AH's own deposit for posting this group with the current duration, or nil if the
+-- AH is closed or the client cannot say. Each reading also teaches Prices the live rates.
+function S.ExactDeposit(g, commodity, s)
+    if not (AA.Scanner and AA.Scanner.ahOpen) then return nil end
+    local slot = g.slots and g.slots[1]
+    if not slot or not ItemLocation then return nil end
+    local hours = s.duration
+    local dur = DURATION_ENUM[hours] or 3
+    local qty = commodity and g.count or 1
+    local ok, dep
+    if commodity then
+        ok, dep = C.Call("C_AuctionHouse.CalculateCommodityDeposit", g.itemID, dur, qty)
+    else
+        ok, dep = C.Call("C_AuctionHouse.CalculateItemDeposit",
+            ItemLocation:CreateFromBagAndSlot(slot.bag, slot.slot), dur, qty)
+    end
+    dep = ok and C.SafeNumber(dep) or nil
+    if dep then P.LearnDeposit(s, g.vendor, qty, hours, dep) end
+    return dep
 end
 
 function S.Rows()
     local now, s, db, rk = time(), AA.settings, AA.db, AA.RealmKey()
     local rows = {}
     for _, g in ipairs(AA.Bags.Summarize()) do
-        local row = S.BuildRow(g, P.Get(db, rk, g.itemID), now, s, S.IsCommodity(g))
+        local commodity = S.IsCommodity(g)
+        local row = S.BuildRow(g, P.Get(db, rk, g.itemID), now, s, commodity, S.ExactDeposit(g, commodity, s))
         row.mark = AA.Marks and AA.Marks.Get(db, g.itemID) or nil
         rows[#rows + 1] = row
     end
@@ -126,23 +152,32 @@ function S.MarkedFirst(rows)
     return top
 end
 
--- Rows for "Post all marked": marked for auction and priceable. Second result counts
--- marked rows skipped for lack of price data (scan first).
+-- True if posting this row would earn less than vendoring it (profit net of AH cut and deposit).
+function S.LosesMoney(r)
+    return r.eval ~= nil and r.eval.profit ~= nil and r.eval.profit < 0
+end
+
+-- Rows for "Post all marked": marked for auction, priceable, fresh and not at a loss.
+-- Second result counts marked rows skipped (no price, price too old, or would lose money).
 function S.MarkedRows(rows)
     local out, skipped = {}, 0
     for _, r in ipairs(rows) do
         if r.mark == "auction" then
-            if r.suggested then out[#out + 1] = r else skipped = skipped + 1 end
+            if r.suggested and not r.tooOld and not S.LosesMoney(r) then
+                out[#out + 1] = r
+            else
+                skipped = skipped + 1
+            end
         end
     end
     return out, skipped
 end
 
--- Rows eligible for "Post all high-margin": flagged high, and not priced at the floor.
+-- Rows eligible for "Post all high-margin": flagged high, fresh, and not priced at the floor.
 function S.HighMarginRows(rows)
     local out = {}
     for _, r in ipairs(rows) do
-        if r.eval and r.eval.high and r.note ~= "floor" then out[#out + 1] = r end
+        if r.eval and r.eval.high and r.note ~= "floor" and not r.tooOld then out[#out + 1] = r end
     end
     return out
 end
@@ -155,6 +190,8 @@ end
 -- Regular items: one item, buyout = price.
 function S.PlanPost(row, s)
     if not row.suggested then return nil, "no price data" end
+    if row.tooOld then return nil, "price data is " .. tostring(row.age) .. ", scan your bags first" end
+    if S.LosesMoney(row) then return nil, "it would earn less than selling it to a vendor" end
     return {
         commodity = row.commodity, itemID = row.itemID, quantity = row.listQty,
         price = row.suggested, duration = DURATION_ENUM[s.duration] or 3,

@@ -155,31 +155,41 @@ end)
 
 -- Deposit -------------------------------------------------------------------
 
-test("deposit: minimum applies to cheap items", function()
-    eq(P.Deposit(100, 1), 100)
-    eq(P.Deposit(0, 1), 100)
-    eq(P.Deposit(nil, 20), 100)
+test("deposit: 1c minimum per listing (Nov 2026 hotfix, was 1s)", function()
+    eq(P.Deposit(1, 1), 1)
+    eq(P.Deposit(0, 1), 1)
+    eq(P.Deposit(nil, 20), 1)
+    eq(P.Deposit(1, 3), 1)       -- per listing, not per unit
 end)
 
 test("deposit: scales with vendor value, quantity and duration", function()
-    eq(P.Deposit(10000, 1), 6000)                          -- 24h default = 60%
+    eq(P.Deposit(10000, 1), 6000)                          -- 24h = 60%
     eq(P.Deposit(10000, 2), 12000)
-    eq(P.Deposit(10000, 1, { duration = 8 }), 2000)        -- assumed linear
-    eq(P.Deposit(10000, 1, { duration = 2 }), 500)
+    eq(P.Deposit(10000, 1, { duration = 8 }), 2000)        -- 8h = 20%
+    eq(P.Deposit(10000, 1, { duration = 2 }), 500)         -- 2h = 5%
 end)
 
-test("deposit: matches real values read from the live AH", function()
+test("deposit: matches every reading from the live AH probe (2026-11-25)", function()
     local function dep(vendor, qty, hours) return P.Deposit(vendor, qty, { duration = hours }) end
-    -- Small Red Pouch, vendor 250: 2h and 8h show the 100c minimum, 24h shows 150c
-    eq(dep(250, 1, 2), 100); eq(dep(250, 1, 8), 100); eq(dep(250, 1, 24), 150)
-    -- Linen Bandage, vendor 10 x 17
-    eq(dep(10, 17, 2), 100); eq(dep(10, 17, 8), 100); eq(dep(10, 17, 24), 102)
-    -- Scroll of Imbue Lesser Flame, vendor 75 x 4
-    eq(dep(75, 4, 24), 180)
-    -- vendor price 0 items still pay the minimum
-    eq(dep(0, 1, 24), 100)
-    -- minimum is per listing, not per unit
-    eq(dep(10, 1, 8), dep(10, 17, 8))
+    -- { vendor, qty, 2h, 8h, 24h }
+    local probe = {
+        { 25, 1, 1, 5, 15 },   { 25, 5, 6, 25, 75 },          -- Nightcrawlers (1.25 -> 1, 6.25 -> 6)
+        { 20, 1, 1, 4, 12 },   { 20, 20, 20, 80, 240 },       -- Heavy Linen Bandage
+        { 40, 1, 2, 8, 24 },   { 40, 20, 40, 160, 480 },      -- Smoked Sagefish
+        { 40, 5, 10, 40, 120 },
+        { 200, 1, 10, 40, 120 }, { 200, 5, 50, 200, 600 },    -- Scroll of Cryoblast
+        { 200, 4, 40, 160, 480 },
+        { 75, 1, 3, 15, 45 },                                 -- Scroll of Imbue Frost (3.75 -> 3)
+        { 120, 1, 6, 24, 72 },                                -- Mana Potion
+        { 180, 1, 9, 36, 108 },                               -- Strong Fishing Pole
+        { 1, 1, 1, 1, 1 },     { 1, 3, 1, 1, 1 },             -- Small Glimmering Shard (minimum)
+    }
+    for _, p in ipairs(probe) do
+        local v, q = p[1], p[2]
+        eq(dep(v, q, 2), p[3], ("vendor %d x%d 2h"):format(v, q))
+        eq(dep(v, q, 8), p[4], ("vendor %d x%d 8h"):format(v, q))
+        eq(dep(v, q, 24), p[5], ("vendor %d x%d 24h"):format(v, q))
+    end
 end)
 
 test("deposit: extra cost lowers margin and profit", function()
@@ -203,13 +213,14 @@ test("suggest: undercut default = larger of 1c or 1%", function()
 end)
 
 test("suggest: undercut small price uses 1 copper", function()
-    -- lowest 50: 1% floors to 0, so 1c undercut -> 49, floor is max(ceil(10*1.05)=11, 1)
-    eq((P.SuggestPrice(50, 60, 10)), 49)
+    -- lowest 50: 1% floors to 0, so 1c undercut -> 49. Deposit ignored so the floor stays low.
+    eq((P.SuggestPrice(50, 60, 10, { depositWeight = 0 })), 49)
 end)
 
 test("suggest: never below vendor floor", function()
+    -- 24h deposit 600c; (1000 * 1.05 + 600) / 0.95 = 1736.8 -> 1737
     local price, note = P.SuggestPrice(1000, 1000, 1000)
-    eq(price, 1050)
+    eq(price, 1737)
     eq(note, "floor")
 end)
 
@@ -229,7 +240,9 @@ test("suggest: undercut falls back to market when lowest unknown", function()
 end)
 
 test("suggest: vendor 0 uses minimum listing price floor", function()
-    eq((P.SuggestPrice(1, 1, 0, { undercutMode = "copper" })), 1)
+    eq((P.SuggestPrice(1, 1, 0, { undercutMode = "copper", depositWeight = 0 })), 1)
+    -- with the 1c minimum deposit counted, posting must at least recover it: 1 / 0.95 -> 2
+    eq((P.SuggestPrice(1, 1, 0, { undercutMode = "copper" })), 2)
 end)
 
 -- Staleness / formatting ----------------------------------------------------
@@ -302,4 +315,80 @@ test("money: icon format uses the coin textures", function()
     assert(AA.Prices.FormatMoneyIcons(0):find("0|T", 1, true))
     assert(AA.Prices.FormatMoneyIcons(-150):sub(1, 1) == "-")
     eq(AA.Prices.FormatMoneyIcons(nil), "?")
+end)
+
+-- Floor and learned deposits ---------------------------------------------------
+
+test("floor: posting at the floor never earns less than vendoring", function()
+    for _, vendor in ipairs({ 1, 37, 250, 1000, 12345, 500000 }) do
+        for _, hours in ipairs({ 2, 8, 24 }) do
+            local s = { duration = hours, vendorFloorMult = 1 }
+            local fl = P.PriceFloor(vendor, s)
+            local profit = P.Profit(fl, vendor, s, P.Deposit(vendor, 1, s))
+            assert(profit >= 0, ("vendor %d %dh floor %d loses %d"):format(vendor, hours, fl, profit))
+        end
+    end
+end)
+
+test("floor: uses an exact per-unit deposit when given", function()
+    eq(P.PriceFloor(1000, { vendorFloorMult = 1 }, 0), 1053)    -- 1000 / 0.95
+    eq(P.PriceFloor(1000, { vendorFloorMult = 1 }, 1), 1054)
+end)
+
+test("learn: probe readings in any order give the real 1c minimum, never a too-high one", function()
+    -- start from the pre-hotfix 1s minimum
+    local s = { duration = 8, minDeposit = 100 }
+    eq(P.Deposit(3, 1, s), 100)
+    P.LearnDeposit(s, 120, 1, 24, 72)    -- Mana Potion 24h: just the rate, not the minimum
+    eq(P.MinDeposit(s) <= 72, true)
+    P.LearnDeposit(s, 25, 1, 2, 1)       -- Nightcrawlers 2h: 1.25 rounded down
+    P.LearnDeposit(s, 1, 3, 24, 1)       -- Glimmering Shard x3: raw 1.8 -> 1, still 1
+    P.LearnDeposit(s, 1, 1, 2, 1)        -- Glimmering Shard 2h: raw 0, so 1 IS the minimum
+    eq(P.MinDeposit(s), 1)
+    eq(P.Deposit(3, 1, s), 1)
+end)
+
+test("learn: an exact minimum reading also raises a too-low minimum", function()
+    local s = { minDeposit = 1 }
+    eq(P.LearnDeposit(s, 0, 1, 8, 100), true)
+    eq(P.MinDeposit(s), 100)
+end)
+
+test("learn: models saved by 1.0.2 are discarded", function()
+    local s = { depositLearned = { min = 72, rates = { [8] = 0.5 } } }
+    eq(P.MinDeposit(s), 1)
+    eq(P.Deposit(10000, 1, s), 6000)
+end)
+
+test("learn: a reading on a 10s+ listing sets that duration's rate", function()
+    local s = { duration = 8 }
+    eq(P.LearnDeposit(s, 50000, 1, 8, 7500), true)    -- 15% at 8h, not the assumed 20%
+    eq(P.Deposit(50000, 1, s), 7500)
+    eq(P.Deposit(10000, 3, s), 4500)
+    s.duration = 24
+    eq(P.Deposit(10000, 1, s), 6000)                  -- other durations keep the default
+end)
+
+test("learn: rates snap to 0.1%; small listings and bad input are ignored", function()
+    local s = { duration = 24 }
+    eq(P.LearnDeposit(s, 500, 1, 24, 300), false)     -- under 10s of vendor value
+    eq(P.LearnDeposit(s, 1350, 1, 8, 270), true)      -- 20% stored
+    eq(P.LearnDeposit(s, 1350, 1, 8, 270), false)     -- same reading again: no change
+    eq(P.LearnDeposit(s, 1350, 1, 8, 202), true)      -- 202/1350 = 14.96% -> 15%
+    eq(P.DepositRate(8, s), 0.15)
+    eq(P.LearnDeposit(s, nil, 1, 24, nil), false)
+    eq(P.LearnDeposit(nil, 50000, 1, 24, 100), false)
+end)
+
+test("evaluate: an exact deposit replaces the estimate", function()
+    local r = P.Evaluate({ market = 20000, t = 0 }, 1000, 1, 0, nil, 50)
+    eq(r.deposit, 50); eq(r.depositExact, true)
+    eq(r.profit, 19000 - 1000 - 50)
+end)
+
+test("post age: too old after postMaxAge, off at 0", function()
+    eq(P.TooOldToPost(0, 3601), true)
+    eq(P.TooOldToPost(0, 3600), false)
+    eq(P.TooOldToPost(0, 99999, { postMaxAge = 0 }), false)
+    eq(P.TooOldToPost(nil, 5), true)
 end)

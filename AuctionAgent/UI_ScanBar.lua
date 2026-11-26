@@ -1,6 +1,6 @@
 local ADDON, AA = ...
 
--- Scan progress bar: sits under the Auction House window while a scan runs, so it is always
+-- Scan progress bar: sits above (default), over or under the Auction House window while a scan runs, so it is always
 -- clear that a scan is happening, how far along it is, and that the AH must stay open. When a
 -- scan ends it shows a green "done, you can close the AH" or a red failure message for a few
 -- seconds. All UI work is under pcall.
@@ -23,7 +23,6 @@ local function create()
     if not ah then return nil end
     bar = CreateFrame("StatusBar", "AuctionAgentScanBar", ah)
     bar:SetSize(470, 22)
-    bar:SetPoint("TOPRIGHT", ah, "BOTTOMRIGHT", -4, 2)
     bar:SetFrameStrata("HIGH")
     bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
     bar:SetMinMaxValues(0, 1)
@@ -58,7 +57,25 @@ local function create()
     return bar
 end
 
+-- Pure: anchor for a scanBarPosition value -> point, relativePoint, x, y on the AH frame.
+function B.AnchorFor(position)
+    if position == "center" then return "CENTER", "CENTER", 0, 0 end
+    if position == "bottom" then return "TOPRIGHT", "BOTTOMRIGHT", -4, 2 end
+    return "BOTTOM", "TOP", 0, 6     -- "top" and anything unknown
+end
+
+local anchored
+local function anchor()
+    local pos = AA.settings and AA.settings.scanBarPosition or "top"
+    if anchored == pos then return end
+    local point, rel, x, y = B.AnchorFor(pos)
+    bar:ClearAllPoints()
+    bar:SetPoint(point, _G.AuctionHouseFrame, rel, x, y)
+    anchored = pos
+end
+
 local function paint(color, text, frac, indeterminate)
+    anchor()
     bar:SetStatusBarColor(color[1], color[2], color[3], 0.9)
     bar:SetValue(frac or 1)
     bar.indeterminate = indeterminate

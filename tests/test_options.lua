@@ -64,3 +64,24 @@ test("options: choices cycle and wrap", function()
     eq(O.ChoiceLabel(e, 24), "24 hours")
     eq(O.ChoiceLabel(e, 99), "99")
 end)
+
+test("reset internal: stale saved price constants are replaced, user options kept", function()
+    local O, P = AA.Options, AA.Prices
+    -- what a 1.0.0-era install had saved (from the user's SavedVariables, 2026-11-25)
+    local saved = { duration = 8, ahCut = 0.05, depositRate = 0.15, minDeposit = 100, depositWeight = 0.5,
+                    depositLearned = { min = 1, rates = {} } }
+    assert(P.Deposit(1027, 1, saved) ~= 205)   -- stale constants: wrong (1.0.2 showed 51c)
+    local reset = O.ResetInternal(saved, P.DEFAULTS)
+    eq(table.concat(reset, ","), "depositRate,minDeposit")
+    eq(saved.depositWeight, 0.5)               -- a real option: untouched
+    eq(P.Deposit(1027, 1, saved), 205)         -- matches the AH's 2s 5c at 8 hours
+    eq(#O.ResetInternal(saved, P.DEFAULTS), 0)
+end)
+
+test("scan bar: anchors above, over or below the AH window", function()
+    local B = AA.ScanBar
+    eq(select(1, B.AnchorFor("top")), "BOTTOM"); eq(select(2, B.AnchorFor("top")), "TOP")
+    eq(select(1, B.AnchorFor("center")), "CENTER")
+    eq(select(2, B.AnchorFor("bottom")), "BOTTOMRIGHT")
+    eq(select(1, B.AnchorFor(nil)), "BOTTOM")
+end)

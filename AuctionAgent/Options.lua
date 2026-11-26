@@ -49,7 +49,7 @@ O.SCHEMA = {
     { key = "minListingPrice", type = "money", min = 1, max = 100000000, label = "Lowest price ever suggested",
       tip = "Never suggest a price below this." },
     { key = "vendorFloorMult", type = "number", hint = "x vendor price", min = 1, max = 5, label = "Vendor floor",
-      tip = "The suggested price never drops below the vendor price times this (1.05 = 5% above vendor)." },
+      tip = "The suggested price never drops below the price that, after the 5% AH cut and the deposit, still earns the vendor price times this (1.05 = 5% more than vendoring)." },
 
     { section = "Market value" },
     { key = "outlierFraction", type = "number", scale = 100, hint = "% of listings", min = 0.01, max = 1,
@@ -61,6 +61,9 @@ O.SCHEMA = {
     { key = "staleSeconds", type = "number", scale = 1 / 3600, hint = "hours", min = 3600, max = 2592000,
       label = "Dim prices older than",
       tip = "Price data older than this is shown dimmed in the Sell Panel." },
+    { key = "postMaxAge", type = "number", scale = 1 / 60, hint = "minutes (0 = off)", min = 0, max = 604800,
+      label = "Do not post on prices older than",
+      tip = "Posting is refused when the item's price data is older than this, so you never list on yesterday's prices. Scan your bags to refresh." },
     { key = "maxAgeDays", type = "number", int = true, hint = "days", min = 1, max = 90,
       label = "Forget prices older than",
       tip = "Stored prices older than this are deleted at login." },
@@ -71,6 +74,10 @@ O.SCHEMA = {
     { key = "scanScope", type = "choice", label = "Automatic scan covers",
       tip = "What an automatic scan does when it runs.",
       choices = choices({ "bags", "Bag items only" }, { "full", "Whole auction house" }) },
+
+    { key = "scanBarPosition", type = "choice", label = "Scan progress bar position",
+      tip = "Where the progress bar sits while a scan runs: above the Auction House window, over its middle, or below it (where it can cover other addons' tabs).",
+      choices = choices({ "top", "Above the window" }, { "center", "Middle of the window" }, { "bottom", "Below the window" }) },
 
     { section = "Tooltips" },
     { key = "tooltipMode", type = "choice", label = "Tooltip detail",
@@ -117,6 +124,23 @@ O.SCHEMA = {
 ---------------------------------------------------------------------------
 -- Pure helpers
 ---------------------------------------------------------------------------
+
+-- Price constants that are not user options (e.g. depositRate, minDeposit, ahCut) always come
+-- from the code, never from saved settings. Older builds saved them, and because missing keys
+-- are the only ones filled in on load, a stale value (1.0.0's depositRate 0.15) stuck forever.
+-- Returns the keys that were reset.
+function O.ResetInternal(settings, defaults)
+    local reset = {}
+    if type(settings) ~= "table" or type(defaults) ~= "table" then return reset end
+    for k, v in pairs(defaults) do
+        if not O.Find(k) and type(v) ~= "table" and settings[k] ~= v then
+            settings[k] = v
+            reset[#reset + 1] = k
+        end
+    end
+    table.sort(reset)
+    return reset
+end
 
 function O.Find(key)
     for _, e in ipairs(O.SCHEMA) do

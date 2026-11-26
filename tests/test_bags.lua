@@ -38,21 +38,21 @@ test("evaluate: entry without market means nolistings", function()
     eq(r.age, "1m ago")
 end)
 
-test("evaluate: cheap item, minimum deposit swamps the sale -> vendor it", function()
-    -- market 19c vs vendor 3c x5: raw margin is large, but the 1s minimum deposit costs
-    -- far more than the whole stack is worth.
+test("evaluate: cheap item with a small profit is marginal, not worth auctioning", function()
+    -- market 19c vs vendor 3c x5: margin is large but the profit is far under 10s.
+    -- 24h deposit floor(15 * 0.6) = 9c (the 1s minimum is gone since the Nov 2026 hotfix).
     local r = P.Evaluate({ market = 19, low = 19, t = 1000 }, 3, 5, 1000)
     eq(r.state, "ok")
     eq(r.high, false)
-    eq(r.rec, "vendor")
+    eq(r.rec, nil)
     eq(r.marketTotal, 95)
-    eq(r.deposit, 100)
+    eq(r.deposit, 9)
 end)
 
 test("evaluate: low-level enchanting wand (vendor 1s, AH 1s 50c) is not worth listing", function()
-    -- the example from play: vendors for 1s, deposit is 1s
+    -- 24h deposit is 60c: 142 net - 100 vendor - 60 deposit < 0
     local r = P.Evaluate({ market = 150, t = 1000 }, 100, 1, 1000)
-    eq(r.deposit, 100)
+    eq(r.deposit, 60)
     eq(r.rec, "vendor")
     eq(r.high, false)
     assert(r.profit < 0)

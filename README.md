@@ -25,7 +25,7 @@ Requires the WoW Forever client (`## Interface: 16001`). Auctionator and VendorP
 
 ## Quick start
 
-1. **Get pricing.** Open the Auction House. The first time, AuctionAgent offers a full scan of the whole auction house, which gives every item a price in its tooltip while you quest. After that, the items in your bags are re-priced each time the AH opens. **Keep the Auction House open while a scan runs**: a progress bar under the window shows how far along it is, and turns green with "you can close the Auction House" when it is done. Closing the window early cancels the scan.
+1. **Get pricing.** Open the Auction House. The first time, AuctionAgent offers a full scan of the whole auction house, which gives every item a price in its tooltip while you quest. After that, the items in your bags are re-priced each time the AH opens. **Keep the Auction House open while a scan runs**: a progress bar above the window shows how far along it is (it can also sit over the middle or below; see the options), and turns green with "you can close the Auction House" when it is done. Closing the window early cancels the scan.
 2. **Mark your items.** Alt + left-click an item in your bags to cycle its mark: `AH` (gold) means auction it, `V` (green) means vendor it, a third click clears it. Soulbound items can only be marked `V`.
 3. **Sell.** At a vendor, press **Sell marked** (the button just below the merchant window). At the AH, open the Sell tab and use the Sell Panel's **Post all marked** or **Post all high-margin** buttons (both ask for confirmation first).
 4. **Tune it.** Type `/aa` to open the options.
@@ -41,7 +41,8 @@ Open the Auction House's Sell tab and the Sell Panel docks beside it, listing ev
 - **Market value** is the median of the cheapest listings (the lowest 15 percent, between 1 and 10 of them), so a single absurd listing does not move it.
 - **Profit** = market value after the 5 percent AH cut, minus the vendor price, minus the deposit. **Margin** = profit divided by vendor price.
 - An item is **worth auctioning** when margin is at least 50 percent *and* profit is at least 10 silver (both adjustable).
-- **Deposit** is `max(1s, vendor price x quantity x 0.6 x hours / 24)` per listing. The 24 hour rate (60 percent) was measured on the live client; the 2 and 8 hour rates are assumed proportional. The deposit is refunded when the auction sells and lost when it expires, so by default the full deposit counts against profit (change "Deposit counted as a cost" to relax that).
+- **Deposit** is `max(1c, vendor price x quantity x rate)` per listing, rounded down, with rate 5 / 20 / 60 percent for 2 / 8 / 24 hours (measured on the live client after the November 2026 hotfix, which lowered the minimum from 1s to 1c). While the Auction House is open, AuctionAgent uses the exact deposit the server reports and re-learns the rates and minimum from it, so a later change is picked up without an update. The deposit is refunded when the auction sells and lost when it expires, so by default the full deposit counts against profit (change "Deposit counted as a cost" to relax that).
+- **Suggested price** never goes below the price that, after the 5 percent cut and the deposit, still earns 5 percent more than vendoring (the "Vendor floor" option). AuctionAgent refuses to post an item whose price data is more than an hour old (option "Do not post on prices older than") or that would earn less than the vendor pays.
 - Prices are stored per connected realm and faction, dimmed after a day, and deleted after two weeks.
 
 ## Commands
